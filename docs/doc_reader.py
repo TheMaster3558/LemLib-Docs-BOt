@@ -4,7 +4,8 @@ from typing import ClassVar, Optional, Set, Tuple, Union
 
 import aiohttp
 from bs4 import BeautifulSoup, Tag
-from markdownify import MarkdownConverter
+
+from .markdown import MarkdownConverterLocalLinks
 
 
 class DocumentationReader:
@@ -20,7 +21,7 @@ class DocumentationReader:
         self.session = session
 
         self.inventories = {}
-        self.md_converter = MarkdownConverter(code_language='cpp')
+        self.md_converter = MarkdownConverterLocalLinks(code_language='cpp')
 
     def clear_inventories(self) -> None:
         self.inventories.clear()
@@ -89,9 +90,9 @@ class DocumentationReader:
             'breathe-sectiondef', remaining.children
         )
 
-        description = self.md_converter.convert(
-            ''.join(map(str, description_elements))
-        ).replace('\n\n\n', '\n')
+        page_url = url.split('#')[0]
+        description = self.md_converter.convert(''.join(map(str, description_elements)), page_url)
+        description = description.replace('\n\n\n', '\n')
 
         return url, signature.strip(), description.strip()
 
