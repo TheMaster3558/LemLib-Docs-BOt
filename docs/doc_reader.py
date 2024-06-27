@@ -1,3 +1,4 @@
+import asyncio
 import re
 import zlib
 from typing import ClassVar, Optional, Set, Tuple, Union
@@ -62,22 +63,8 @@ class DocumentationReader:
                     self.base_url + version + '/' + location
                 )
 
-    async def get_symbol_markdown(
-        self, name: str, version: str
-    ) -> Optional[Union[str, Tuple[str, str, str]]]:
-        # 1. Will return None if the symbol is not found
-        # 2. Will return a string url if the symbol was found but the documentation is not available online
-        # 3. Will return a tuple of url, signature, description if the symbol was found and the documentation is available online
-
-        try:
-            url = self.inventories[version][name]
-        except KeyError:
-            return None
-
-        async with self.session.get(url) as resp:
-            html_content = await resp.text()
-            soup = BeautifulSoup(html_content, 'html.parser')
-            symbol_heading = soup.find(id=url.split('#')[-1])
+    def parse_signature_and_description(self, soup: BeautifulSoup, url: str) -> Union[str, Tuple[str, str]]:
+        symbol_heading = soup.find(id=url.split('#')[-1])
 
         if symbol_heading is None:
             return url
@@ -93,6 +80,27 @@ class DocumentationReader:
         page_url = url.split('#')[0]
         description = self.md_converter.convert(''.join(map(str, description_elements)), page_url)
         description = description.replace('\n\n\n', '\n')
+
+        return signature, description
+
+    async def get_symbol_markdown(
+        self, name: str, version: str
+    ) -> Optional[Union[str, Tuple[str, str, str]]]:
+        # 1. Will return None if the symbol is not found
+        # 2. Will return a string url if the symbol was found but the documentation is not available online
+        # 3. Will return a tuple of url, signature, description if the symbol was found and the documentation is available online
+
+        try:
+            url = self.inventories[version][name]
+        except KeyError:
+            return None
+
+        async with self.session.get(url) as resp:
+            html_content = await resp.text()
+            soup = BeautifulSoup(html_content, 'html.parser')
+
+        # beautifulsoup parsing is blocking so we need to run it in a separate thread
+        signature, description = await asyncio.to_thread(self.parse_signature_and_description, soup, url)
 
         return url, signature.strip(), description.strip()
 
