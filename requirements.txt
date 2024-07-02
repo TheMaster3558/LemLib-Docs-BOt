@@ -4,3 +4,4 @@ aiohttp>=3.9.5
 beautifulsoup4>=4.12.3
 markdownify>=0.12.1
 python-dotenv>=1.0.1
+python-Levenshtein>=0.25.0 # makes command autocomplete ~5 times faster
